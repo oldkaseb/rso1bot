@@ -4,6 +4,7 @@
 import os
 import re
 import asyncio
+import time
 from secrets import token_urlsafe
 from urllib.parse import quote as urlquote
 from datetime import datetime, timezone
@@ -655,16 +656,15 @@ async def group_trigger(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply = message.reply_to_message
     txt = (message.text or "").strip().lower()
 
-    if not reply or not reply.from_user:
+    if txt not in ("نجوا", "درگوشی", "سکرت"):
         return
 
-    # فقط اگر متن شامل کلمه کلیدی باشه، ادامه بده
-    if txt not in ("نجوا", "درگوشی", "سکرت"):
+    if not reply or not reply.from_user:
+        await message.reply_text("برای ارسال نجوا باید روی پیام شخص موردنظر ریپلای کنید.")
         return
 
     await upsert_user(user)
 
-    # بررسی عضویت فقط در صورت اجرای دستور نجوا
     async with pool.acquire() as con:
         rows = await con.fetch("SELECT username FROM mandatory_channels;")
     channels = [r["username"] for r in rows if r["username"]]
@@ -680,7 +680,6 @@ async def group_trigger(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await message.reply_text("برای استفاده از ربات، ابتدا عضو کانال‌های زیر شوید:", reply_markup=InlineKeyboardMarkup(buttons))
             return
 
-    # اگر عضو بود، ادامه ارسال نجوا
     await handle_group_whisper(update, context, reply.from_user.id)
 
     # راهنما داخل گروه
@@ -1104,6 +1103,17 @@ async def admin_inactive_groups_panel(update: Update, context: ContextTypes.DEFA
 
     await update.message.reply_text("🚪 گروه‌های غیرفعال:", reply_markup=InlineKeyboardMarkup(buttons))
 
+async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id not in ADMIN_ID:
+        return  # یا می‌تونی پیام خطا بدی: await update.message.reply_text("⛔ فقط ادمین‌ها می‌تونن از این دستور استفاده کنن.")
+
+    start = time.time()
+    sent = await update.message.reply_text("⏳ در حال اندازه‌گیری پینگ...")
+    end = time.time()
+    latency = int((end - start) * 1000)
+    await sent.edit_text(f"🏓 پینگ ربات: {latency} میلی‌ثانیه")
+
 async def on_admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cq = update.callback_query
     if not cq.from_user.id in ADMIN_ID:
@@ -1387,6 +1397,9 @@ def main():
 
     app.add_handler(CommandHandler("admin", admin_panel))
     app.add_handler(CallbackQueryHandler(on_admin_callback, pattern=r"^(panel:|delchan:|leave:)"))
+
+    app.add_handler(CommandHandler("پینگ", ping))
+    app.add_handler(CommandHandler("ping", ping))
 
     
     app.add_handler(CommandHandler("addlock", addlock))
