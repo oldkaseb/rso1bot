@@ -1106,7 +1106,7 @@ async def admin_inactive_groups_panel(update: Update, context: ContextTypes.DEFA
 async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id not in ADMIN_ID:
-        return  # یا می‌تونی پیام خطا بدی: await update.message.reply_text("⛔ فقط ادمین‌ها می‌تونن از این دستور استفاده کنن.")
+        return
 
     start = time.time()
     sent = await update.message.reply_text("⏳ در حال اندازه‌گیری پینگ...")
@@ -1398,9 +1398,7 @@ def main():
     app.add_handler(CommandHandler("admin", admin_panel))
     app.add_handler(CallbackQueryHandler(on_admin_callback, pattern=r"^(panel:|delchan:|leave:)"))
 
-    app.add_handler(CommandHandler("پینگ", ping))
-    app.add_handler(CommandHandler("ping", ping))
-
+    app.add_handler(MessageHandler(filters.TEXT & filters.Regex(r"^پینگ$"), ping))
     
     app.add_handler(CommandHandler("addlock", addlock))
     app.add_handler(CommandHandler("removelock", removelock))
