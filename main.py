@@ -1038,6 +1038,18 @@ async def admin_channels_panel(update: Update, context: ContextTypes.DEFAULT_TYP
 
     await update.message.reply_text("📎 لیست کانال‌های اجباری:", reply_markup=InlineKeyboardMarkup(buttons))
 
+async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.type != ChatType.PRIVATE or update.effective_user.id not in ADMIN_ID:
+        return
+
+    await update.message.reply_text(
+        "🎛 پنل مدیریت:",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("📎 لیست کانال‌های اجباری", callback_data="panel:channels")],
+            [InlineKeyboardButton("🚪 گروه‌های غیرفعال", callback_data="panel:groups")],
+        ])
+    )
+
 async def admin_inactive_groups_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type != ChatType.PRIVATE or update.effective_user.id not in ADMIN_ID:
         return
@@ -1337,8 +1349,8 @@ def main():
     app.add_handler(CommandHandler("addlock", addlock))
     app.add_handler(CommandHandler("removelock", removelock))
 
-    app.add_handler(CommandHandler("کانال_ها", admin_channels_panel))
-    app.add_handler(CommandHandler("گروه_ها", admin_inactive_groups_panel))
+    app.add_handler(CommandHandler("channels", admin_channels_panel))
+    app.add_handler(CommandHandler("groups", admin_inactive_groups_panel))
     app.add_handler(CallbackQueryHandler(on_admin_callback, pattern=r"^(delchan|leave):"))
 
     # دکمهٔ بررسی عضویت در گروه
