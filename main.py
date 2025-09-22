@@ -347,6 +347,7 @@ INTRO_TEXT = (
 )
 
 # ---------- /start ----------async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     await upsert_user(user)
 
