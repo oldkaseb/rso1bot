@@ -1347,7 +1347,7 @@ def main():
     app.add_handler(CallbackQueryHandler(on_show_cb, pattern=r"^show:\-?\d+:\d+:\d+$"))
 
     app.add_handler(CommandHandler("admin", admin_panel))
-    app.add_handler(CallbackQueryHandler(on_admin_panel_callback, pattern=r"^(panel:|delchan:|leave:)"))
+    app.add_handler(CallbackQueryHandler(on_admin_callback, pattern=r"^(panel:|delchan:|leave:)"))
 
     
     app.add_handler(CommandHandler("addlock", addlock))
@@ -1355,7 +1355,6 @@ def main():
 
     app.add_handler(CommandHandler("channels", admin_channels_panel))
     app.add_handler(CommandHandler("groups", admin_inactive_groups_panel))
-    app.add_handler(CallbackQueryHandler(on_admin_callback, pattern=r"^(delchan|leave):"))
 
     # دکمهٔ بررسی عضویت در گروه
     app.add_handler(CallbackQueryHandler(on_checksub_group, pattern=r"^gjchk:\d+:-?\d+:\d+$"))
