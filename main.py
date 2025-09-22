@@ -189,7 +189,8 @@ async def check_user_membership(context: ContextTypes.DEFAULT_TYPE, user_id: int
     try:
         async with pool.acquire() as con:
             rows = await con.fetch("SELECT username FROM mandatory_channels;")
-        channels = [r["username"] for r in rows]
+        channels = [r["username"] for r in rows if r["username"]]
+
         for ch in channels:
             try:
                 member = await context.bot.get_chat_member(f"@{ch}", user_id)
@@ -305,17 +306,17 @@ def _channels_text():
 async def start_keyboard_pre() -> InlineKeyboardMarkup:
     async with pool.acquire() as con:
         rows = await con.fetch("SELECT username FROM mandatory_channels;")
-    channels = [r["username"] for r in rows]
+    channels = [r["username"] for r in rows if r["username"]]
 
-    rows_btns = [[InlineKeyboardButton("عضو شدم ✅", callback_data="checksub")]]
-
+    buttons = []
     for ch in channels:
-        rows_btns.append([InlineKeyboardButton(f"عضویت در @{ch}", url=f"https://t.me/{ch}")])
+        buttons.append([InlineKeyboardButton(f"عضویت در @{ch}", url=f"https://t.me/{ch}")])
 
-    rows_btns.append([InlineKeyboardButton("افزودن ربات به گروه ➕", url="https://t.me/secret_rhinosoul_bot?startgroup=true")])
-    rows_btns.append([InlineKeyboardButton("ارتباط با پشتیبان 👨🏻‍💻", url=f"https://t.me/OLDKASEB")])
+    buttons.append([InlineKeyboardButton("عضو شدم ✅", callback_data="checksub")])
+    buttons.append([InlineKeyboardButton("افزودن ربات به گروه ➕", url="https://t.me/secret_rhinosoul_bot?startgroup=true")])
+    buttons.append([InlineKeyboardButton("ارتباط با پشتیبان 👨🏻‍💻", url=f"https://t.me/{SUPPORT_CONTACT}")])
 
-    return InlineKeyboardMarkup(rows_btns)
+    return InlineKeyboardMarkup(buttons)
 
 def start_keyboard_post():
     return InlineKeyboardMarkup([
@@ -326,7 +327,7 @@ def start_keyboard_post():
 async def get_channels_text() -> str:
     async with pool.acquire() as con:
         rows = await con.fetch("SELECT username FROM mandatory_channels;")
-    return "، ".join([f"@{r['username']}" for r in rows])
+    return "، ".join([f"@{r['username']}" for r in rows if r["username"]])
 
 async def get_start_text() -> str:
     return (
@@ -345,38 +346,36 @@ INTRO_TEXT = (
     "RHINOSOUL تیم برنامه نویسی راینوسول"
 )
 
-# ---------- /start ----------
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_chat.type != ChatType.PRIVATE:
-        return
-    await upsert_user(update.effective_user)
+# ---------- /start ----------async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    await upsert_user(user)
 
-    ok = await check_user_membership(context, update.effective_user.id)
-    if ok:
-        await update.message.reply_text(INTRO_TEXT, reply_markup=start_keyboard_post())
-        # اگر پندینگ فعال دارد، پیام انتظار بفرست
-        async with pool.acquire() as con:
-            row = await con.fetchrow(
-                "SELECT group_id, receiver_id FROM pending WHERE sender_id=$1 AND expires_at>NOW();",
-                update.effective_user.id
-            )
-        if row:
-            group_id = int(row["group_id"])
-            receiver_id = int(row["receiver_id"])
-            try:
-                chatobj = await context.bot.get_chat(group_id)
-                gtitle = group_link_title(getattr(chatobj, "title", "گروه"))
-            except Exception:
-                gtitle = "گروه"
-            receiver_name = await get_name_for(receiver_id, "گیرنده")
+    async with pool.acquire() as con:
+        rows = await con.fetch("SELECT username FROM mandatory_channels;")
+    channels = [r["username"] for r in rows if r["username"]]
+
+    for ch in channels:
+        try:
+            member = await context.bot.get_chat_member(f"@{ch}", user.id)
+            if member.status not in ("member", "administrator", "creator"):
+                raise Exception("not member")
+        except Exception:
+            buttons = [[InlineKeyboardButton(f"عضویت در @{ch}", url=f"https://t.me/{ch}") for ch in channels]]
+            buttons.append([InlineKeyboardButton("عضو شدم ✅", callback_data="checksub")])
+            buttons.append([InlineKeyboardButton("افزودن ربات به گروه ➕", url="https://t.me/secret_rhinosoul_bot?startgroup=true")])
+            buttons.append([InlineKeyboardButton("ارتباط با پشتیبان 👨🏻‍💻", url=f"https://t.me/{SUPPORT_CONTACT}")])
             await update.message.reply_text(
-                f"⌛️ در انتظارِ متنِ نجوای شما…\n"
-                f"هدف: {mention_html(receiver_id, receiver_name)} در «{gtitle}»\n"
-                f"لطفاً فقط متن را ارسال کنید.",
-                parse_mode=ParseMode.HTML
+                "برای استفاده از ربات، ابتدا عضو کانال‌های زیر شوید:",
+                reply_markup=InlineKeyboardMarkup(buttons)
             )
-    else:
-        await update.message.reply_text(START_TEXT, reply_markup=start_keyboard_pre())
+            return
+
+    await update.message.reply_text(
+        "سلام! 👋\n\n"
+        "برای ارسال نجوا، فقط متن رو بفرست یا از روش ریپلای/اینلاین استفاده کن.\n"
+        "برای راهنما، کلمه «راهنما» رو بفرست.",
+        reply_markup=await start_keyboard_pre()
+    )
 
 async def on_checksub(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type != ChatType.PRIVATE:
@@ -649,18 +648,32 @@ async def on_inline_show(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ---------- تشخیص تریگر در گروه (ریپلای) ----------
 async def group_trigger(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    msg = update.effective_message
-    chat = update.effective_chat
+    message = update.message
     user = update.effective_user
+    chat = update.effective_chat
+    reply = message.reply_to_message
 
-    if chat.type not in (ChatType.GROUP, ChatType.SUPERGROUP):
+    if not reply or not reply.from_user:
         return
 
-    await upsert_chat(chat, active=True)
-    if user:
-        await upsert_user(user)
+    await upsert_user(user)
 
-    text = (msg.text or msg.caption or "").strip()
+    async with pool.acquire() as con:
+        rows = await con.fetch("SELECT username FROM mandatory_channels;")
+    channels = [r["username"] for r in rows if r["username"]]
+
+    for ch in channels:
+        try:
+            member = await context.bot.get_chat_member(f"@{ch}", user.id)
+            if member.status not in ("member", "administrator", "creator"):
+                raise Exception("not member")
+        except Exception:
+            buttons = [[InlineKeyboardButton(f"عضویت در @{ch}", url=f"https://t.me/{ch}") for ch in channels]]
+            buttons.append([InlineKeyboardButton("عضو شدم ✅", callback_data=f"gjchk:{user.id}:{chat.id}:{reply.from_user.id}")])
+            await message.reply_text("برای استفاده از ربات، ابتدا عضو کانال‌های زیر شوید:", reply_markup=InlineKeyboardMarkup(buttons))
+            return
+
+    await handle_group_whisper(update, context, reply.from_user.id)
 
     # راهنما داخل گروه
     if text in ("راهنما", "help", "Help"):
@@ -807,21 +820,40 @@ async def private_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await upsert_user(user)
     txt = (update.message.text or "").strip()
 
-    if not await check_user_membership(context, user.id):
-        await update.message.reply_text(await get_start_text(), reply_markup=await start_keyboard_pre())
-        return
+    async with pool.acquire() as con:
+        rows = await con.fetch("SELECT username FROM mandatory_channels;")
+    channels = [r["username"] for r in rows if r["username"]]
+
+    for ch in channels:
+        try:
+            member = await context.bot.get_chat_member(f"@{ch}", user.id)
+            if member.status not in ("member", "administrator", "creator"):
+                raise Exception("not member")
+        except Exception:
+            buttons = [[InlineKeyboardButton(f"عضویت در @{ch}", url=f"https://t.me/{ch}") for ch in channels]]
+            buttons.append([InlineKeyboardButton("عضو شدم ✅", callback_data="checksub")])
+            buttons.append([InlineKeyboardButton("افزودن ربات به گروه ➕", url="https://t.me/secret_rhinosoul_bot?startgroup=true")])
+            buttons.append([InlineKeyboardButton("ارتباط با پشتیبان 👨🏻‍💻", url=f"https://t.me/{SUPPORT_CONTACT}")])
+            await update.message.reply_text(
+                "برای استفاده از ربات، ابتدا عضو کانال‌های زیر شوید:",
+                reply_markup=InlineKeyboardMarkup(buttons)
+            )
+            return
 
     if txt in ("راهنما", "help", "Help"):
-        channels_text = await get_channels_text()
         await update.message.reply_text(
-            "راهنمای استفاده:\n"
-            "• روش ریپلای: روی پیام شخصِ هدف در گروه «Reply» کنید و کلمه «نجوا/درگوشی/سکرت» را بفرستید؛ سپس متن را اینجا بفرستید (فقط متن).\n"
-            "• روش اینلاین: در گروه تایپ کنید:\n"
-            f"@{BOT_USERNAME or 'BotUsername'} <متن نجوا> @username  یا فقط @{BOT_USERNAME or 'BgooOutis_Bot'} برای مخاطبین اخیر.\n"
-            f"• برای ارسال، عضو کانال‌ها باشید: {channels_text}",
+            "📌 راهنمای استفاده از ربات:\n"
+            "• روش ریپلای: روی پیام شخص در گروه ریپلای کن و کلمه «نجوا» یا «سکرت» رو بفرست، بعد متن نجوا رو اینجا بفرست.\n"
+            "• روش اینلاین: در گروه تایپ کن:\n"
+            f"@{BOT_USERNAME or 'BotUsername'} <متن نجوا> @username\n"
+            "• برای ارسال، عضو کانال‌های زیر باش:\n"
+            f"{'، '.join([f'@{ch}' for ch in channels])}",
+            reply_markup=await start_keyboard_pre(),
             disable_web_page_preview=True
         )
         return
+
+    await handle_whisper_delivery(update, context, txt)
 
     # شاخه‌های ادمین
     if user.id in ADMIN_ID:
