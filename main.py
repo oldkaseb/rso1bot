@@ -1346,6 +1346,10 @@ def main():
     app.add_handler(CallbackQueryHandler(on_show_by_id, pattern=r"^showid:\d+$"))
     app.add_handler(CallbackQueryHandler(on_show_cb, pattern=r"^show:\-?\d+:\d+:\d+$"))
 
+    app.add_handler(CommandHandler("admin", admin_panel))
+    app.add_handler(CallbackQueryHandler(on_admin_panel_callback, pattern=r"^(panel:|delchan:|leave:)"))
+
+    
     app.add_handler(CommandHandler("addlock", addlock))
     app.add_handler(CommandHandler("removelock", removelock))
 
