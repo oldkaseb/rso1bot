@@ -653,12 +653,18 @@ async def group_trigger(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     chat = update.effective_chat
     reply = message.reply_to_message
+    txt = (message.text or "").strip().lower()
 
     if not reply or not reply.from_user:
         return
 
+    # فقط اگر متن شامل کلمه کلیدی باشه، ادامه بده
+    if txt not in ("نجوا", "درگوشی", "سکرت"):
+        return
+
     await upsert_user(user)
 
+    # بررسی عضویت فقط در صورت اجرای دستور نجوا
     async with pool.acquire() as con:
         rows = await con.fetch("SELECT username FROM mandatory_channels;")
     channels = [r["username"] for r in rows if r["username"]]
@@ -674,6 +680,7 @@ async def group_trigger(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await message.reply_text("برای استفاده از ربات، ابتدا عضو کانال‌های زیر شوید:", reply_markup=InlineKeyboardMarkup(buttons))
             return
 
+    # اگر عضو بود، ادامه ارسال نجوا
     await handle_group_whisper(update, context, reply.from_user.id)
 
     # راهنما داخل گروه
