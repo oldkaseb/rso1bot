@@ -807,7 +807,7 @@ async def private_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     await upsert_user(user)
     txt = (update.message.text or "").strip()
-  if not await check_user_membership(context, user.id):
+    if not await check_user_membership(context, user.id):
 
     # راهنما
     if txt in ("راهنما", "help", "Help"):
