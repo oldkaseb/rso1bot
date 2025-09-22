@@ -1398,7 +1398,7 @@ def main():
     app.add_handler(CommandHandler("admin", admin_panel))
     app.add_handler(CallbackQueryHandler(on_admin_callback, pattern=r"^(panel:|delchan:|leave:)"))
 
-    app.add_handler(MessageHandler(filters.TEXT & filters.Regex(r"^پینگ$"), ping))
+    app.add_handler(MessageHandler(filters.TEXT & filters.Regex(r"پینگ"), ping))
     
     app.add_handler(CommandHandler("addlock", addlock))
     app.add_handler(CommandHandler("removelock", removelock))
