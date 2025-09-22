@@ -190,7 +190,6 @@ async def check_user_membership(context: ContextTypes.DEFAULT_TYPE, user_id: int
         async with pool.acquire() as con:
             rows = await con.fetch("SELECT username FROM mandatory_channels;")
         channels = [r["username"] for r in rows]
-
         for ch in channels:
             try:
                 member = await context.bot.get_chat_member(f"@{ch}", user_id)
