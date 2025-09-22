@@ -807,17 +807,19 @@ async def private_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     await upsert_user(user)
     txt = (update.message.text or "").strip()
-    if not await check_user_membership(context, user.id):
 
-    # راهنما
+    if not await check_user_membership(context, user.id):
+        await update.message.reply_text(await get_start_text(), reply_markup=await start_keyboard_pre())
+        return
+
     if txt in ("راهنما", "help", "Help"):
+        channels_text = await get_channels_text()
         await update.message.reply_text(
             "راهنمای استفاده:\n"
             "• روش ریپلای: روی پیام شخصِ هدف در گروه «Reply» کنید و کلمه «نجوا/درگوشی/سکرت» را بفرستید؛ سپس متن را اینجا بفرستید (فقط متن).\n"
             "• روش اینلاین: در گروه تایپ کنید:\n"
-            "RHINOSOUL تیم برنامه نویسی راینوسول"
             f"@{BOT_USERNAME or 'BotUsername'} <متن نجوا> @username  یا فقط @{BOT_USERNAME or 'BgooOutis_Bot'} برای مخاطبین اخیر.\n"
-            f"• برای ارسال، عضو کانال‌ها باشید: {_channels_text()}",
+            f"• برای ارسال، عضو کانال‌ها باشید: {channels_text}",
             disable_web_page_preview=True
         )
         return
